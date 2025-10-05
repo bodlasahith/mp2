@@ -1,240 +1,154 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
-import { SpotifyTrack, SpotifyAlbum, SpotifyArtist } from '../types/spotify';
+import { useParams, useNavigate } from 'react-router-dom';
+import movieService from '../services/movieService';
+import { MovieDetails, Movie } from '../types/movie';
 import './DetailView.css';
 
-interface LocationState {
-  item: SpotifyTrack | SpotifyAlbum | SpotifyArtist;
-  allResults: (SpotifyTrack | SpotifyAlbum | SpotifyArtist)[];
-  currentIndex: number;
-}
-
 const DetailView: React.FC = () => {
-  const { type } = useParams<{ type: string; id: string }>();
-  const location = useLocation();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
+  const [movie, setMovie] = useState<MovieDetails | null>(null);
+  const [allMovies, setAllMovies] = useState<Movie[]>([]);
+  const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [allResults, setAllResults] = useState<(SpotifyTrack | SpotifyAlbum | SpotifyArtist)[]>([]);
-  const [currentItem, setCurrentItem] = useState<SpotifyTrack | SpotifyAlbum | SpotifyArtist | null>(null);
 
   useEffect(() => {
-    const state = location.state as LocationState;
-    if (state && state.item && state.allResults) {
-      setCurrentItem(state.item);
-      setAllResults(state.allResults);
-      setCurrentIndex(state.currentIndex);
-    } else {
-      // If no state, redirect back
-      navigate('/list');
+    if (id) {
+      loadMovieDetails(parseInt(id));
+      loadAllMovies();
     }
-  }, [location, navigate]);
+  }, [id]);
+
+  const loadMovieDetails = async (movieId: number) => {
+    setLoading(true);
+    try {
+      const movieDetails = await movieService.getMovieDetails(movieId);
+      setMovie(movieDetails);
+    } catch (error) {
+      console.error('Error loading movie details:', error);
+    }
+    setLoading(false);
+  };
+
+  const loadAllMovies = async () => {
+    try {
+      const response = await movieService.getPopularMovies();
+      setAllMovies(response.results);
+      const index = response.results.findIndex(m => m.id === parseInt(id!));
+      setCurrentIndex(index >= 0 ? index : 0);
+    } catch (error) {
+      console.error('Error loading movies:', error);
+    }
+  };
 
   const handlePrevious = () => {
-    if (currentIndex > 0) {
-      const newIndex = currentIndex - 1;
-      const newItem = allResults[newIndex];
-      setCurrentIndex(newIndex);
-      setCurrentItem(newItem);
-      
-      // Update URL without navigation
-      window.history.replaceState(
-        { item: newItem, allResults, currentIndex: newIndex },
-        '',
-        `/detail/${type}/${newItem.id}`
-      );
-    }
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : allMovies.length - 1;
+    setCurrentIndex(prevIndex);
+    navigate(`/movie/${allMovies[prevIndex].id}`);
   };
 
   const handleNext = () => {
-    if (currentIndex < allResults.length - 1) {
-      const newIndex = currentIndex + 1;
-      const newItem = allResults[newIndex];
-      setCurrentIndex(newIndex);
-      setCurrentItem(newItem);
-      
-      // Update URL without navigation
-      window.history.replaceState(
-        { item: newItem, allResults, currentIndex: newIndex },
-        '',
-        `/detail/${type}/${newItem.id}`
-      );
-    }
+    const nextIndex = currentIndex < allMovies.length - 1 ? currentIndex + 1 : 0;
+    setCurrentIndex(nextIndex);
+    navigate(`/movie/${allMovies[nextIndex].id}`);
   };
 
-  const formatDuration = (ms: number): string => {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = ((ms % 60000) / 1000).toFixed(0);
-    return `${minutes}:${seconds.padStart(2, '0')}`;
-  };
-
-
-
-  const renderTrackDetails = (track: SpotifyTrack) => (
-    <div className="detail-content">
-      <div className="detail-image">
-        <img src={track.album.images[0]?.url} alt={track.name} />
-      </div>
-      
-      <div className="detail-info">
-        <h1>{track.name}</h1>
-        <p className="subtitle">by {track.artists.map(artist => artist.name).join(', ')}</p>
-        
-        <div className="details-grid">
-          <div className="detail-item">
-            <strong>Album:</strong> {track.album.name}
-          </div>
-          <div className="detail-item">
-            <strong>Duration:</strong> {formatDuration(track.duration_ms)}
-          </div>
-          <div className="detail-item">
-            <strong>Popularity:</strong> {track.popularity}%
-          </div>
-          <div className="detail-item">
-            <strong>Release Date:</strong> {new Date(track.album.release_date).toLocaleDateString()}
-          </div>
-          <div className="detail-item">
-            <strong>Track Number:</strong> {track.album.total_tracks} total tracks
-          </div>
-          
-          {track.preview_url && (
-            <div className="detail-item audio-preview">
-              <strong>Preview:</strong>
-              <audio controls>
-                <source src={track.preview_url} type="audio/mpeg" />
-                Your browser does not support the audio element.
-              </audio>
-            </div>
-          )}
-          
-          <div className="detail-item">
-            <a 
-              href={track.external_urls.spotify} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="spotify-link"
-            >
-              Open in Spotify
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderAlbumDetails = (album: SpotifyAlbum) => (
-    <div className="detail-content">
-      <div className="detail-image">
-        <img src={album.images[0]?.url} alt={album.name} />
-      </div>
-      
-      <div className="detail-info">
-        <h1>{album.name}</h1>
-        <p className="subtitle">by {album.artists.map(artist => artist.name).join(', ')}</p>
-        
-        <div className="details-grid">
-          <div className="detail-item">
-            <strong>Type:</strong> {album.album_type}
-          </div>
-          <div className="detail-item">
-            <strong>Release Date:</strong> {new Date(album.release_date).toLocaleDateString()}
-          </div>
-          <div className="detail-item">
-            <strong>Total Tracks:</strong> {album.total_tracks}
-          </div>
-          
-          <div className="detail-item">
-            <a 
-              href={album.external_urls.spotify} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="spotify-link"
-            >
-              Open in Spotify
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderArtistDetails = (artist: SpotifyArtist) => (
-    <div className="detail-content">
-      <div className="detail-image">
-        <img src={artist.images[0]?.url} alt={artist.name} />
-      </div>
-      
-      <div className="detail-info">
-        <h1>{artist.name}</h1>
-        
-        <div className="details-grid">
-          <div className="detail-item">
-            <strong>Popularity:</strong> {artist.popularity}%
-          </div>
-          <div className="detail-item">
-            <strong>Followers:</strong> {artist.followers.total.toLocaleString()}
-          </div>
-          <div className="detail-item">
-            <strong>Genres:</strong>
-            <div className="genres">
-              {artist.genres.map((genre, index) => (
-                <span key={index} className="genre-tag">{genre}</span>
-              ))}
-            </div>
-          </div>
-          
-          <div className="detail-item">
-            <a 
-              href={artist.external_urls.spotify} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="spotify-link"
-            >
-              Open in Spotify
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (!currentItem) {
+  if (loading || !movie) {
     return <div className="loading">Loading...</div>;
   }
 
   return (
     <div className="detail-view">
       <div className="detail-header">
-        <Link to="/list" className="back-button">← Back to Search</Link>
-        
-        <div className="navigation-controls">
-          <button 
-            onClick={handlePrevious} 
-            disabled={currentIndex === 0}
-            className="nav-button"
-            title="Previous item"
-          >
-            ← Previous
-          </button>
-          
-          <span className="navigation-info">
-            {currentIndex + 1} of {allResults.length}
-          </span>
-          
-          <button 
-            onClick={handleNext} 
-            disabled={currentIndex === allResults.length - 1}
-            className="nav-button"
-            title="Next item"
-          >
-            Next →
-          </button>
+        <img
+          src={movieService.getBackdropUrl(movie.backdrop_path)}
+          alt={movie.title}
+          className="backdrop"
+        />
+        <div className="header-content">
+          <img
+            src={movieService.getPosterUrl(movie.poster_path)}
+            alt={movie.title}
+            className="detail-poster"
+          />
+          <div className="movie-title">
+            <h1>{movie.title}</h1>
+            <p className="tagline">{movie.tagline}</p>
+          </div>
         </div>
       </div>
 
-      {type === 'track' && renderTrackDetails(currentItem as SpotifyTrack)}
-      {type === 'album' && renderAlbumDetails(currentItem as SpotifyAlbum)}
-      {type === 'artist' && renderArtistDetails(currentItem as SpotifyArtist)}
+      <div className="detail-content">
+        <div className="movie-info">
+          <div className="info-row">
+            <span className="label">Release Date:</span>
+            <span>{movieService.formatDate(movie.release_date)}</span>
+          </div>
+          <div className="info-row">
+            <span className="label">Runtime:</span>
+            <span>{movieService.formatRuntime(movie.runtime)}</span>
+          </div>
+          <div className="info-row">
+            <span className="label">Rating:</span>
+            <span>⭐ {movie.vote_average.toFixed(1)}/10 ({movie.vote_count} votes)</span>
+          </div>
+          <div className="info-row">
+            <span className="label">Genres:</span>
+            <span>{movie.genres.map(g => g.name).join(', ')}</span>
+          </div>
+          <div className="info-row">
+            <span className="label">Budget:</span>
+            <span>{movieService.formatMoney(movie.budget)}</span>
+          </div>
+          <div className="info-row">
+            <span className="label">Revenue:</span>
+            <span>{movieService.formatMoney(movie.revenue)}</span>
+          </div>
+          <div className="info-row">
+            <span className="label">Status:</span>
+            <span>{movie.status}</span>
+          </div>
+        </div>
+
+        <div className="overview">
+          <h3>Overview</h3>
+          <p>{movie.overview}</p>
+        </div>
+
+        <div className="production-info">
+          <h3>Production Companies</h3>
+          <div className="companies">
+            {movie.production_companies.map(company => (
+              <span key={company.id} className="company">
+                {company.name}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="production-info">
+          <h3>Production Countries</h3>
+          <div className="countries">
+            {movie.production_countries.map(country => (
+              <span key={country.iso_3166_1} className="country">
+                {country.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="navigation-buttons">
+        <button onClick={handlePrevious} className="nav-button">
+          Previous
+        </button>
+        <span className="navigation-info">
+          {currentIndex + 1} of {allMovies.length}
+        </span>
+        <button onClick={handleNext} className="nav-button">
+          Next
+        </button>
+      </div>
     </div>
   );
 };

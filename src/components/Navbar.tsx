@@ -1,41 +1,43 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import spotifyService from '../services/spotifyService';
 import './Navbar.css';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
-  const isAuthenticated = spotifyService.isAuthenticated();
-
-  const handleLogout = () => {
-    spotifyService.clearAuth();
-    window.location.href = '/';
-  };
 
   return (
     <nav className="navbar">
-      <div className="navbar-brand">
-        <Link to="/">🎵 Spotify Music Explorer</Link>
+      <div className="navbar-container">
+        <Link to="/" className="navbar-brand">
+          🎬 MovieExplorer
+        </Link>
+        <ul className="navbar-nav">
+          <li className="nav-item">
+            <Link 
+              to="/" 
+              className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
+            >
+              Home
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link 
+              to="/search" 
+              className={`nav-link ${location.pathname === '/search' ? 'active' : ''}`}
+            >
+              Search
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link 
+              to="/gallery" 
+              className={`nav-link ${location.pathname === '/gallery' ? 'active' : ''}`}
+            >
+              Gallery
+            </Link>
+          </li>
+        </ul>
       </div>
-      {isAuthenticated && (
-        <div className="navbar-nav">
-          <Link 
-            to="/list" 
-            className={location.pathname === '/list' ? 'active' : ''}
-          >
-            Search
-          </Link>
-          <Link 
-            to="/gallery" 
-            className={location.pathname === '/gallery' ? 'active' : ''}
-          >
-            Gallery
-          </Link>
-          <button onClick={handleLogout} className="logout-btn">
-            Logout
-          </button>
-        </div>
-      )}
     </nav>
   );
 };
