@@ -17,7 +17,7 @@ const DetailView: React.FC = () => {
       loadMovieDetails(parseInt(id));
       loadAllMovies();
     }
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMovieDetails = async (movieId: number) => {
     setLoading(true);
